@@ -1,0 +1,313 @@
+#!/bin/bash
+helpfuls
+## Some reusable variables
+if [[ "$CP" == "yes" ]]
+	then httpdv=$(/usr/local/apache/bin/apachectl -v 2> /dev/null|awk -F '/' '/version/ {print $2}')
+	mpm=$(/usr/local/apache/bin/apachectl -V 2> /dev/null|awk '/MPM:/ {print $3}')
+	httpdconf=$(/usr/local/apache/bin/apachectl -V 2> /dev/null|awk -F \" '/HTTPD_ROOT|SERVER_CONFIG_FILE/ {print $2}'|paste -sd '/' -)
+	else if [ -f /usr/sbin/apachectl ]
+		then httpdv=$(/usr/sbin/apachectl -v 2> /dev/null|awk -F '/' '/version/ {print $2}')
+        	mpm=$(/usr/sbin/apachectl -V 2> /dev/null|awk '/MPM:/ {print $3}')
+		httpdconf=$(/usr/sbin/apachectl -V 2> /dev/null|awk -F \" '/HTTPD_ROOT|SERVER_CONFIG_FILE/ {print $2}'|paste -sd '/' -)
+		else httpdv="no"
+	fi
+fi
+
+if [[ -z $(which php 2> /dev/null) ]]
+	then phpv="no"
+	else phpv=$(php -v 2> /dev/null |head -1| cut -d ' ' -f 2)
+	phpini=$(php -i 2> /dev/null|awk '/Loaded Configuration/ {print $5}')
+	if [[ "$CP" == "yes" ]]
+		then handler=$(/usr/local/cpanel/bin/rebuild_phpconf --current|awk '/PHP5 SAPI:/ {print $3}')
+		else if [[ "$httpdv" != "no" ]]
+			then hander=$(/usr/sbin/apachectl -M 2> /dev/null|egrep "((su)?php)")
+		fi
+	fi
+fi
+
+if [[ -z $(echo $@) ]]
+then
+## OS
+printf "\n${BOLD}OS:${RS}		"
+if [[ -z $(which lsb_release 2> /dev/null) ]]
+        then if [ -f /etc/redhat-release ]
+                then printf "${GREEN}$(cat /etc/redhat-release)${RS}\n"
+        fi
+        else printf "${GREEN}$(lsb_release -d|cut -d '	' -f 2)${RS}\n"
+fi
+
+### Control Panels
+printf "********************\n"
+printf "${BOLD}Control Panels:${RS}\n"
+## cPanel
+if [[ "$CP" == "yes" ]]
+	then printf "cPanel:		"
+	printf "${GREEN}$(/usr/local/cpanel/cpanel -V)${RS}\n"
+fi
+
+## Plesk
+if [[ "$PL" == "yes" ]]
+	then printf "Plesk:	"
+	printf "${GREEN}$(cat /usr/local/psa/version|awk '{print $1}')${RS}\n"
+fi
+
+## Sentora
+if [[ -z $(which zppy 2> /dev/null) ]]
+	then true
+	else printf "Sentora:	"
+	printf "${GREEN}$(zppy --version|awk '{print $2}')${RS}\n"
+fi
+
+### Programming Languages
+printf "********************\n"
+printf "${BOLD}Programming Languages:${RS}\n"
+## PHP
+printf "PHP:		"
+if [[ "$phpv" == "no" ]]
+	then printf "${RED}NOT installed!${RS}\n"
+	else printf "${GREEN}$phpv${RS}\n"
+fi
+
+## PYTHON
+printf "Python:		"
+if [[ -z $(which python 2> /dev/null) ]]
+	then printf "${RED}Umm...python isn't installed?${RS}\n"
+	else printf "${GREEN}$(python -V 2>&1|awk '{print $2}')${RS}\n"
+fi
+
+## PERL
+printf "Perl:		"
+if [[ -z $(which perl 2> /dev/null) ]]
+	then printf "${RED}Umm...perl isn't installed?${RS}\n"
+	else printf "${GREEN}$(perl -v|egrep -o "[0-9]+\.[0-9]+\.[0-9]+")${RS}\n"
+fi
+
+## Java
+if [[ -z $(which java 2> /dev/null ) ]]
+        then true
+        else printf "Java:		"
+        printf "${GREEN}$(java -version 2>&1|awk -F '"' '/version/ {print $2}')${RS}\n"
+fi
+
+### Web Servers
+printf "********************\n"
+printf "${BOLD}Web Servers:${RS}\n"
+## APACHE
+printf "Apache:		"
+if [[ "$httpdv" == "no" ]]
+	then printf "${RED}NOT installed!${RS}\n"
+	else printf "${GREEN}$httpdv${RS}	MPM: ${GREEN}$mpm${RS}\n"
+fi
+
+## Nginx
+if [[ -z $(which nginx 2> /dev/null) ]]
+        then true
+        else printf "Nginx:		"
+        printf "${GREEN}$(nginx -v 2>&1|awk -F / '{print $2}')${RS}\n"
+fi
+
+## Varnish
+if [[ -z $(which varnishd 2> /dev/null) ]]
+        then true
+        else printf "Varnish:	"
+        printf "${GREEN}$(varnishd -V 2>&1|awk -F - '/varnishd/ {print $2}'|sed 's/)//')${RS}\n"
+fi
+
+## Tomcat
+if [[ -z $(which tomcat 2> /dev/null ) ]]
+        then true
+        else printf "Tomcat:		"
+        printf "${GREEN}$(tomcat version 2> /dev/null|awk -F / '/version/ {print $2}')${RS}\n"
+fi
+
+### Databases
+printf "********************\n"
+printf "${BOLD}Database Servers:${RS}\n"
+## MYSQL
+printf "MySQL:		"
+if [[ -z $(which mysqladmin 2> /dev/null) ]]
+	then printf "${RED}NOT installed!${RS}\n"
+	else printf "${GREEN}$(mysqladmin -V|awk '{print $5}'|cut -d , -f1)${RS}\n"
+fi
+
+## POSTGRESQL
+if [[ -z $(which psql 2> /dev/null) ]]
+	then true
+	else printf "PostgreSQL:	"
+	printf "${GREEN}$(psql -V|awk '/[0-9]+/ {print $3}')${RS}\n"
+fi
+
+### Email Servers
+printf "********************\n"
+printf "${BOLD}E-mail Servers:${RS}\n"
+## Postfix
+if [[ -z $(which postconf 2> /dev/null) ]]
+	then true
+	else printf "Postfix:	"
+	printf "${GREEN}$(postconf mail_version|awk '{print $3}')${RS}\n"
+fi
+
+## Exim
+if [[ -z $(which exim 2> /dev/null) ]]
+	then true
+	else printf "Exim:		"
+	printf "${GREEN}$(exim -bV |awk '/version/ {print $3,$4}')${RS}\n"
+fi
+
+## Sendmail
+if [[ -z $(which sendmail 2> /dev/null) ]]
+	then true
+	else if [[ -z $(sendmail -d0.4 -bv root 2> /dev/null) ]]
+		then true
+		else printf "Sendmail:	"
+		printf "${GREEN}$(sendmail -d0.4 -bv root|awk '/Version/ {print $2}')${RS}\n"
+	fi
+fi
+
+### Caches
+printf "********************\n"
+printf "${BOLD}Memory Caches:${RS}\n"
+## Memcached
+if [[ -z $(which memcached 2> /dev/null) ]]
+	then true
+	else printf "Memcached:	"
+	printf "${GREEN}$(memcached -h|awk '/memcached [0-9]+/ {print $2}')${RS}\n"
+fi
+
+## Redis
+if [[ -z $(which redis-cli 2> /dev/null) ]]
+	then true
+	else printf "Redis:		"
+	printf "${GREEN}$(redis-cli -v|awk '{print $2}')${RS}\n"
+fi
+
+### OPTIONAL STUFF ###
+printf "********************\n"
+printf "${BOLD}Misc:${RS}\n"
+
+## Ruby
+if [[ -z $(which ruby 2> /dev/null) ]]
+	then true
+	else printf "Ruby:		"
+	printf "${GREEN}$(ruby -v|awk '{print $2}')${RS}\n"
+fi
+
+## Rails
+if [[ -z $(which rails 2> /dev/null) ]]
+	then true
+	else printf "Rails:		"
+	printf "${GREEN}$(rails -v|awk '{print $2}')${RS}\n"
+fi
+
+## Git
+if [[ -z $(which git 2> /dev/null ) ]]
+	then true
+	else printf "Git:		"
+	printf "${GREEN}$(git --version|awk '{print $3}')${RS}\n"
+fi
+
+## SVN
+if [[ -z $(which svn 2> /dev/null ) ]]
+        then true
+        else printf "SVN:		"
+        printf "${GREEN}$(svn --version|awk '/version [0-9]/ {print $3,$4}')${RS}\n"
+fi
+fi
+
+while test $# -gt 0
+do
+	case "$1" in
+		-h|--help) printf "\nVersions script. By default (with no arguments passed) will output versions of software it finds. You may pass it a space-separated list of services to get more detailed information on them.\n"
+		printf "\nAvailable services for details:\n   httpd\n   php\n   nginx\n   mysql\n"
+		;;
+		neigh) printf "${MAGENTA}${BOLD}Watch";sleep .2;printf " me";sleep .2;printf " WHIP\n";sleep 1.2;printf "Watch";sleep .2;printf " me";sleep .2;printf " NEIGH-" ;sleep .2;printf "NEIGH\n";sleep 1.2;printf "Watch";sleep .2;printf " me";sleep .2;printf " WHIP-";sleep .7;printf "WHIP\n";sleep .5;printf "Watch";sleep .2;printf " me";sleep .2;printf " NEIGH-" ;sleep .2;printf "NEIGH\n";printf "${RS}\n"
+		exit
+		;;
+		httpd) printf "${MAGENTA}${BOLD}Details for httpd:${RS}\n"
+			if [[ "$httpdv" == "no" ]]
+	                	then printf "${RED}NOT installed!${RS}\n"
+		                else printf "Version:	${GREEN}$httpdv${RS}       MPM: ${GREEN}$mpm${RS}\n"
+				printf "\n${MAGENTA}${BOLD}Opts:${RS}\n"
+				if [[ "$mpm" =~ [pP]refork ]]
+					then egrep "(StartServ|(Min|Max)(SpareServ|RequestWork|ConnectionsPer)|ServerLim|KeepAl|^Timeou)" $httpdconf|column -t
+					else egrep "(StartServ|Max(RequestWork|ConnectionsPer)|ServerLim|KeepAl|^Timeou)" $httpdconf|column -t
+				fi
+				if [[ -z $(egrep "(StartServ|(Min|Max)(SpareServ|RequestWork|ConnectionsPer)|ServerLim|KeepAl|^Timeou)" /usr/local/apache/conf/includes/*.conf 2> /dev/null) ]]
+					then true
+					else printf "${RED}Warning: Found extra configs in include files!${RS}\n"
+				fi
+				printf "\n${MAGENTA}${BOLD}Resource Usage:${RS}\n"
+				if [[ -z $(which bc 2> /dev/null) ]]
+					then printf "Can't calculate memory usage without bc! Install first"
+					else printf "Memory Used:		$(ps faux|awk '/[h]ttpd/ {print $6}'|paste -sd '+' -|bc)K\n"
+					printf "Memory Allocated:	$(ps faux|awk '/[h]ttpd/ {print $5}'|paste -sd '+' -|bc)K\n"
+					printf "CPU Usage:		$(ps faux|awk '/[h]ttpd/ {print $3}'|paste -sd '+' -|bc)%%\n"
+				fi
+		fi
+		printf "\n*******************************\n"
+		;;
+		php) printf "${MAGENTA}${BOLD}Details for PHP:${RS}\n"
+			if [[ "$phpv" == "no" ]]
+  				then printf "${RED}NOT installed!${RS}\n"
+				else if [[ -z "$handler" ]]
+					then printf "Version:	${GREEN}$phpv${RS} Handler: ${GREEN}cgi/fcgi${RS}\n"
+					else printf "Version:	${GREEN}$phpv${RS} Handler: ${GREEN}$handler${RS}\n"
+				fi
+				printf "Loaded php.ini:	$phpini\n"
+                		printf "\n${MAGENTA}${BOLD}Opts:${RS}\n"
+				printf "Variable Local Master \n$(php -i 2> /dev/null|awk '/memory_limit|max_execution|max_input_time|max_input_vars/ {print $1 " " $3 " " $5}'|head -n4)"|column -t
+				printf "\n${MAGENTA}${BOLD}Error Logging:${RS}\n"
+				printf "Variable Local Master \n$(php -i 2> /dev/null|grep -v apache|awk '/(log_|^)error(s |_log)/ {print $1 " " $3 " " $5}')"|column -t
+				printf "\n${MAGENTA}${BOLD}Mail log:${RS}\n"
+				printf "Variable Local Master \n$(php -i 2> /dev/null|awk '/mail.(log|add_x_header)/ {print $1 " " $3 " " $5}')"|column -t
+				printf "\n${MAGENTA}${BOLD}Resource Usage:${RS}\n"
+				if [[ -z $(which bc 2> /dev/null) ]]
+					then printf "Can't calculate memory usage without bc! Install first"
+		                        else printf "Memory Used:		$(ps faux|awk '/php/ {print $6}'|paste -sd '+' -|bc)K\n"
+                		        printf "Memory Allocated:	$(ps faux|awk '/[p]hp/ {print $5}'|paste -sd '+' -|bc)K\n"
+		                        printf "CPU Usage:		$(ps faux|awk '/[p]hp/ {print $3}'|paste -sd '+' -|bc)%%\n"
+				fi
+		fi
+		printf "\n*******************************\n"
+		;;
+		nginx) printf "${MAGENTA}${BOLD}Details for nginx:${RS}\n"
+			if [[ -z $(which nginx 2> /dev/null) ]]	
+				then printf "${RED}NOT installed!${RS}\n"
+				else printf "Version:	${GREEN}$(nginx -v 2>&1|awk -F / '{print $2}')${RS}\n"
+                                printf "\n${MAGENTA}${BOLD}Opts:${RS}\n"
+				nginx -T 2> /dev/null|grep -v "#"|egrep "(worker_(processes|connections)|keepalive|sendfile|g(un)?zip|tcp_no(push|delay))"|column -t
+				printf "\n${MAGENTA}${BOLD}Resource Usage:${RS}\n"
+                                if [[ -z $(which bc 2> /dev/null) ]]
+                                        then printf "Can't calculate memory usage without bc! Install first"
+                                        else printf "Memory Used:		$(ps faux|awk '/[n]ginx/ {print $6}'|paste -sd '+' -|bc)K\n"
+                                        printf "Memory Allocated:	$(ps faux|awk '/[n]ginx/ {print $5}'|paste -sd '+' -|bc)K\n"
+                                        printf "CPU Usage:		$(ps faux|awk '/[n]ginx/ {print $3}'|paste -sd '+' -|bc)%%\n"
+                                fi
+		fi
+		printf "\n*******************************\n"
+		;;
+		mysql) printf "${MAGENTA}${BOLD}Details for MySQL:${RS}\n"
+			if [[ -z $(which mysqladmin 2> /dev/null) ]]
+                                then printf "${RED}NOT installed!${RS}\n"
+				else printf "Version:	${GREEN}$(mysqladmin -V|cut -d ' ' -f 6|sed 's/,//')${RS}\n"
+				printf "\n${MAGENTA}${BOLD}Opts:${RS}\n"
+				mysqladmin var|awk '/max_connections|default_storage|innodb_buffer_pool_size|key_buffer(_size)?| max_allowed_packet/ {print $2 " " $4}'|column -t
+				printf "\n${MAGENTA}${BOLD}Slow Logging:${RS}\n"
+				mysqladmin var|awk '/(slow|long)_query_(log(_file)?|time)|log_slow_queries/ {print $2 " " $4}'|column -t
+				printf "\n${MAGENTA}${BOLD}General Log:${RS}\n"
+				mysqladmin var|awk '/general_log(_file)?/ {print $2 " " $4}'|column -t
+				printf "\n${MAGENTA}${BOLD}Error Log:${RS}\n"
+				mysqladmin var|awk '/log_error / {print $2 " " $4}'|column -t
+				printf "\n${MAGENTA}${BOLD}Resource Usage:${RS}\n"
+                                if [[ -z $(which bc 2> /dev/null) ]]
+                                        then printf "Can't calculate memory usage without bc! Install first"
+                                        else printf "Memory Used:		$(ps faux|awk '/[m]ysql/ {print $6}'|grep -v grep|paste -sd '+' -|bc)K\n"
+                                        printf "Memory Allocated:	$(ps faux|awk '/[m]ysql/ {print $5}'|paste -sd '+' -|bc)K\n"
+                                        printf "CPU Usage:		$(ps faux|awk '/[m]ysql/ {print $3}'|paste -sd '+' -|bc)%%\n"
+                                fi
+		fi
+		printf "\n*******************************\n"
+		;;
+esac
+shift
+done
