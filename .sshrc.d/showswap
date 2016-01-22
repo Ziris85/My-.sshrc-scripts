@@ -1,0 +1,11 @@
+#!/bin/bash
+helpfuls
+printf "${MAGENTA}${BOLD}########## Swap Info ##########${RS}\n\n"
+printf "${YELLOW}Swappiness:${RS}	"$(cat /proc/sys/vm/swappiness)"\n"
+printf "${YELLOW}Total:${RS}		"$(free -h|awk '/Swap/ {print $2}')"\n"
+printf "${RED}Currently Used:${RS}	"$(free -h|awk '/Swap/ {print $3}')"\n\n"
+if [[ $(free|awk '/Swap/ {print $3}') == "0" ]]
+	then printf "${GREEN}There is nothing using swap on the server currently!${RS}\n"
+	else printf "${BOLD}${YELLOW}Top 10 Highest Swapping Processes${RS}\n"
+	find /proc/ -maxdepth 2 -name status -exec awk '/VmSwap|Name/{printf $2 $3 "	"}END{ print ""}' {} \; | sort -k 2 -n -r | head -n10|column -t
+fi
