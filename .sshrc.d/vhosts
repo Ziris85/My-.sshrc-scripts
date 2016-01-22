@@ -1,0 +1,92 @@
+#!/bin/bash
+helpfuls
+
+if [[ -z "$@" ]]
+	then printf "Usage: vhosts (--dump|--list|--all|--help) domain1.com [domain2.com domain3.com ...]\n"
+	exit
+fi
+
+if [[ $(for i in $(echo $@); do echo $i|egrep -o "^\-h$"; done) ]]
+	then printf "Description: vhosts will output useful virtualhost information for each domain provided, by default. The following flags will override that behavior in their respective ways.\n\n"
+	printf "Usage: vhosts (-d|-l|-a|-h) domain1.com [domain2.com domain3.com ...]\n\n"
+	printf "   -d	Dump the raw virtualhost from the Apache configuration (can be used in conjunction with -a to raw dump all virtualhosts)\n"
+	printf "   -l	List all available virtualhosts on the server (ignores any domains provided)\n"
+	printf "   -a	Provides useful information for all virtualhosts (ignores any domains provided; can be used in conjunction with -d to raw dump all virtualhosts)\n"
+	printf "   -h	This help (ignores any domains provided)\n"
+	exit
+fi
+
+if [[ "$CP" == "yes" ]]
+	then httpdconf=$(/usr/local/apache/bin/apachectl -V 2> /dev/null|awk -F \" '/HTTPD_ROOT|SERVER_CONFIG_FILE/ {print $2}'|paste -sd '/' -)
+	httpdbin="/usr/local/apache/bin/apachectl"
+	else if [ -f /usr/sbin/apachectl ]
+		then httpdconf=$(/usr/sbin/apachectl -V 2> /dev/null|awk -F \" '/HTTPD_ROOT|SERVER_CONFIG_FILE/ {print $2}'|paste -sd '/' -)
+		httpdbin="/usr/sbin/apachectl"
+		else printf "${RED}${BOLD}Could not find httpd.conf(is Apache installed?)! Proceeding no further.${RS}\n"
+		exit
+	fi
+fi
+
+if [[ $(for i in $(echo $@);do echo $i|egrep -o "^\-d";done) ]]
+	then if [[ $(for i in $(echo $@);do echo $i|egrep -o "^\-a$";done) ]]
+		then printf "${MAGENTA}${BOLD}Dumping raw vhost(s) for all domains${RS}\n"
+			for domain in $(httpd -t -D DUMP_VHOSTS 2> /dev/null|awk '/namevhost/ {print "   "$4}'|sort|uniq)
+				do printf "${UL}${YELLOW}${BOLD}$domain${RS}\n"
+				for linenum in $($httpdbin -t -D DUMP_VHOSTS 2> /dev/null|awk -F ':' '/namevhost '$domain'/ {print $2}'|sed 's/)//')
+					do awk 'NR=='$linenum',/\/VirtualHost/' $httpdconf
+					printf "\n${MAGENTA}${BOLD}*********************************************${RS}\n\n"
+				done
+			done
+			exit
+		else printf "${MAGENTA}${BOLD}Dumping raw vhost(s) for $(echo "$@"|sed 's/\-d//')${RS}\n"
+			for domain in $(echo "$@"|sed 's/\-d//')
+				do printf "${UL}${YELLOW}${BOLD}$domain${RS}\n"
+				for linenum in $($httpdbin -t -D DUMP_VHOSTS 2> /dev/null|awk -F ':' '/namevhost '$domain'/ {print $2}'|sed 's/)//')
+					do awk 'NR=='$linenum',/\/VirtualHost/' $httpdconf
+					printf "\n${MAGENTA}${BOLD}*********************************************${RS}\n\n"
+				done
+			done
+		exit
+	fi
+fi
+
+if [[ $(for i in $(echo $@);do echo $i|egrep -o "^\-l$";done) ]]
+	then printf "${MAGENTA}${BOLD}${UL}Available vhosts:${RS}\n"
+	httpd -t -D DUMP_VHOSTS 2> /dev/null|awk '/namevhost/ {print "   "$4}'|sort|uniq
+	exit
+fi
+
+if [[ $(for i in $(echo $@);do echo $i|egrep -o "^\-a$";done) ]]
+	then for domain in $(httpd -t -D DUMP_VHOSTS 2> /dev/null|awk '/namevhost/ {print "   "$4}'|sort|uniq)
+	do printf "${UL}${YELLOW}${BOLD}$domain${RS}\n"
+		for linenum in $($httpdbin -t -D DUMP_VHOSTS 2> /dev/null|awk -F ':' '/namevhost '$domain'/ {print $2}'|sed 's/)//')
+			do vhost=$(awk 'NR=='$linenum',/\/VirtualHost/' $httpdconf|grep -v "#")
+			printf "IP:		$(echo "$vhost"|awk '/\<VirtualHost/ {print $2}'|sed 's/>//')\n"
+			printf "Aliases:	$(echo "$vhost"|awk '/ServerAlias/ {print $2}')\n"
+			printf "DocumentRoot:	$(echo "$vhost"|awk '/DocumentRoot/ {print $2}')\n"
+			if [[ -z $(echo "$vhost"|grep -v "#"|egrep "Include") ]]
+				then printf "${MAGENTA}No vhost includes found${RS}"
+				else printf "\n${MAGENTA}${BOLD}Found the following vhost include(s):${RS}\n"
+				ls $(echo "$vhost"|awk '/Include/ {print $2}'|cut -d '"' -f2)
+			fi
+			printf "\n${MAGENTA}${BOLD}*********************************************${RS}\n\n"
+		done
+	done
+	exit
+fi
+
+for domain in $@
+	do printf "${UL}${YELLOW}${BOLD}$domain${RS}\n"
+	for linenum in $($httpdbin -t -D DUMP_VHOSTS 2> /dev/null|awk -F ':' '/namevhost '$domain'/ {print $2}'|sed 's/)//')
+		do vhost=$(awk 'NR=='$linenum',/\/VirtualHost/' $httpdconf|grep -v "#")
+		printf "IP:		$(echo "$vhost"|awk '/\<VirtualHost/ {print $2}'|sed 's/>//')\n"
+		printf "Aliases:	$(echo "$vhost"|awk '/ServerAlias/ {print $2}')\n"
+		printf "DocumentRoot:	$(echo "$vhost"|awk '/DocumentRoot/ {print $2}')\n"
+		if [[ -z $(echo "$vhost"|grep -v "#"|egrep "Include") ]]
+			then printf "${MAGENTA}No vhost includes found${RS}"
+			else printf "\n${MAGENTA}${BOLD}Found the following vhost include(s):${RS}\n"
+			ls $(echo "$vhost"|awk '/Include/ {print $2}'|cut -d '"' -f2)
+		fi
+		printf "\n${MAGENTA}${BOLD}*********************************************${RS}\n\n"
+	done
+done
