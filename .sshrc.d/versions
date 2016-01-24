@@ -1,14 +1,24 @@
 #!/bin/bash
 helpfuls
+
+if [[ $(for i in $(echo $@); do echo $i|egrep -o "^\-h$"; done) ]]
+        then printf "\nUsage:   vs (service1 [service2 service3...])\n"
+        printf "\nVersions script. By default (with no arguments passed) will output versions of software it finds. You may pass it a space-separated list of services to get more detailed information on them.\n"
+        printf "\nAvailable services for details:\n   httpd\n   php\n   nginx\n   mysql\n   memcached\n"
+        exit
+fi
+
 ## Some reusable variables
 if [[ "$CP" == "yes" ]]
 	then httpdv=$(/usr/local/apache/bin/apachectl -v 2> /dev/null|awk -F '/' '/version/ {print $2}')
 	mpm=$(/usr/local/apache/bin/apachectl -V 2> /dev/null|awk '/MPM:/ {print $3}')
 	httpdconf=$(/usr/local/apache/bin/apachectl -V 2> /dev/null|awk -F \" '/HTTPD_ROOT|SERVER_CONFIG_FILE/ {print $2}'|paste -sd '/' -)
+	httpdinc=$(printf "$(for i in $(awk '/(Min|Max)?(Spare)?RequestWorkers|Clients|ConnectionsPer|Server(s |Limit)|KeepAlive/ {y=1;next}y' $httpdconf|sed '/VirtualHost/,/\/VirtualHost/d'|grep -v "#"|awk '/Include / {print $2}'|sed 's/"//g'); do echo $i; grep -v "#" $i|awk '/Include / {print $2}'|sed 's/"//g';done)"|paste -s)
 	else if [ -f /usr/sbin/apachectl ]
 		then httpdv=$(/usr/sbin/apachectl -v 2> /dev/null|awk -F '/' '/version/ {print $2}')
         	mpm=$(/usr/sbin/apachectl -V 2> /dev/null|awk '/MPM:/ {print $3}')
 		httpdconf=$(/usr/sbin/apachectl -V 2> /dev/null|awk -F \" '/HTTPD_ROOT|SERVER_CONFIG_FILE/ {print $2}'|paste -sd '/' -)
+		httpdinc=$(printf "$(for i in $(awk '/(Min|Max)?(Spare)?RequestWorkers|Clients|ConnectionsPer|Server(s |Limit)|KeepAlive/ {y=1;next}y' $httpdconf|sed '/VirtualHost/,/\/VirtualHost/d'|grep -v "#"|awk '/Include / {print $2}'|sed 's/"//g'); do echo $i; grep -v "#" $i|awk '/Include / {print $2}'|sed 's/"//g';done)"|paste -s)
 		else httpdv="no"
 	fi
 fi
@@ -217,9 +227,6 @@ fi
 while test $# -gt 0
 do
 	case "$1" in
-		-h|--help) printf "\nVersions script. By default (with no arguments passed) will output versions of software it finds. You may pass it a space-separated list of services to get more detailed information on them.\n"
-		printf "\nAvailable services for details:\n   httpd\n   php\n   nginx\n   mysql\n"
-		;;
 		neigh) printf "${MAGENTA}${BOLD}Watch";sleep .2;printf " me";sleep .2;printf " WHIP\n";sleep 1.2;printf "Watch";sleep .2;printf " me";sleep .2;printf " NEIGH-" ;sleep .2;printf "NEIGH\n";sleep 1.2;printf "Watch";sleep .2;printf " me";sleep .2;printf " WHIP-";sleep .7;printf "WHIP\n";sleep .5;printf "Watch";sleep .2;printf " me";sleep .2;printf " NEIGH-" ;sleep .2;printf "NEIGH\n";printf "${RS}\n"
 		exit
 		;;
@@ -229,12 +236,30 @@ do
 		                else printf "Version:	${GREEN}$httpdv${RS}       MPM: ${GREEN}$mpm${RS}\n"
 				printf "\n${MAGENTA}${BOLD}Opts:${RS}\n"
 				if [[ "$mpm" =~ [pP]refork ]]
-					then egrep "(StartServ|(Min|Max)(SpareServ|RequestWork|ConnectionsPer)|ServerLim|KeepAl|^Timeou)" $httpdconf|column -t
-					else egrep "(StartServ|Max(RequestWork|ConnectionsPer)|ServerLim|KeepAl|^Timeou)" $httpdconf|column -t
-				fi
-				if [[ -z $(egrep "(StartServ|(Min|Max)(SpareServ|RequestWork|ConnectionsPer)|ServerLim|KeepAl|^Timeou)" /usr/local/apache/conf/includes/*.conf 2> /dev/null) ]]
-					then true
-					else printf "${RED}Warning: Found extra configs in include files!${RS}\n"
+                                        then for each in Timeout StartServers MinSpareServers MaxSpareServers ServerLimit MaxRequestWorkers MaxClients MaxConnectionsPerChild KeepAlive KeepAliveTimeout MaxKeepAliveRequests
+                                                do for inc in $httpdinc
+                                                        do if [[ $(grep -v "#" $inc|egrep -h "$each " 2> /dev/null) ]]
+                                                                then var=$(grep -v "#" $inc|egrep -h "$each " 2> /dev/null)
+                                                        fi
+                                                done
+                                        if [[ -z $var ]]
+                                                then grep -v "#" $httpdconf|egrep "$each "
+                                                else echo $var
+                                        fi
+                                        var=""
+                                        done
+                                        else for each in Timeout StartServers ServerLimit MaxRequestWorkers MaxClients ThreadsPerChild MaxConnectionsPerChild KeepAlive KeepAliveTimeout MaxKeepAliveRequests
+                                                do for inc in $httpdinc
+                                                        do if [[ $(egrep -v "(#|SSL)" $inc|egrep -h "$each " 2> /dev/null) ]]
+                                                                then var=$(egrep -v "(#|SSL)" $inc|egrep -h "$each " 2> /dev/null)
+                                                        fi
+                                                done
+                                        if [[ -z $var ]]
+                                                then egrep -v "(#|SSL)" $httpdconf|egrep "$each "
+                                                else echo $var
+                                        fi
+                                        var=""
+                                        done
 				fi
 				printf "\n${MAGENTA}${BOLD}Resource Usage:${RS}\n"
 				if [[ -z $(which bc 2> /dev/null) ]]
@@ -308,6 +333,39 @@ do
 		fi
 		printf "\n*******************************\n"
 		;;
+		memcached) printf "${MAGENTA}${BOLD}Details for Memcached:${RS}\n"
+                        if [[ -z $(which memcached 2> /dev/null) ]]
+                                then printf "${RED}NOT installed!${RS}\n"
+                                else printf "Version:   ${GREEN}$(memcached -h|awk '/memcached [0-9]+/ {print $2}')${RS}\n"
+                                memc=$(ss -plnt|awk '/memcached/ {print $4}')
+                                if [[ -z $memc ]]
+                                        then printf "${RED}Is memcached running? Quitting...${RS}\n"
+                                        exit
+                                fi
+                                printf "\n${MAGENTA}${BOLD}Opts:${RS}\n"
+                                if [[ $(which nc) ]]
+                                        then echo stats settings|nc $(echo $memc|awk -F : '{print $1 " " $2}')|awk '/(max(bytes|conns)|slab|lru_(maintainer|crawler )|hash_)/ {print $2 " " $3}'|column -t
+                                        else printf "${RED}'nc' not installed! Can't get opts.${RS}\n"
+                                fi
+                                printf "\n${MAGENTA}${BOLD}Performance:${RS}\n"
+                                if [[ $(which memstat) ]]
+                                        then printf "${GREEN}${BOLD}Hitrate:    ${RS}$(printf "$(memstat --servers=$memc|awk '/get_hits/ {print $2"/("$2"+"}')$(memstat --servers=$memc|awk '/get_misses/ {print $2}'|paste -sd '+' -))*100\n"|bc)%%\n"
+                                        memstat --servers=$memc|awk '/(uptime|(curr|total|rejected)_connections|cmd_fl|(expired|evict(ed|ions ))(_unfected)?|listen_dis|(curr|total)_item)/ {print $1 " " $2}'|column -t
+                                        else if [[ $(which nc) ]]
+                                                then echo stats|nc $(echo $memc|awk -F : '{print $1 " " $2}')|awk '/(uptime|(curr|total|rejected)_connections|cmd_fl|(expired|evict(ed|ions ))(_unfected)?|listen_dis|(curr|total)_item)/ {print $2 " " $3}'|column -t
+                                                else printf "${RED}Neither 'nc' nor 'memstat' available! Can't get performance metrics${RS}\n"
+                                        fi
+                                fi
+                                printf "\n${MAGENTA}${BOLD}Resource Usage:${RS}\n"
+                                if [[ -z $(which bc 2> /dev/null) ]]
+                                        then printf "Can't calculate memory usage without bc! Install first"
+                                        else printf "Memory Used:               $(ps faux|awk '/[m]emcached/ {print $6}'|grep -v grep|paste -sd '+' -|bc)K\n"
+                                        printf "Memory Allocated:       $(ps faux|awk '/[m]emcached/ {print $5}'|paste -sd '+' -|bc)K\n"
+                                        printf "CPU Usage:              $(ps faux|awk '/[m]emcached/ {print $3}'|paste -sd '+' -|bc)%%\n"
+                                fi
+                        fi
+                printf "\n*******************************\n"
+                ;;
 esac
 shift
 done
