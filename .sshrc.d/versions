@@ -238,8 +238,8 @@ do
 				if [[ "$mpm" =~ [pP]refork ]]
                                         then for each in Timeout StartServers MinSpareServers MaxSpareServers ServerLimit MaxRequestWorkers MaxClients MaxConnectionsPerChild KeepAlive KeepAliveTimeout MaxKeepAliveRequests
                                                 do for inc in $httpdinc
-                                                        do if [[ $(grep -v "#" $inc|egrep -h "$each " 2> /dev/null) ]]
-                                                                then var=$(grep -v "#" $inc|egrep -h "$each " 2> /dev/null)
+                                                        do if [[ $(grep -v "#" $inc|egrep "$each " 2> /dev/null) ]]
+                                                                then var=$(grep -v "#" $inc|egrep "$each " 2> /dev/null;printf " --- found in ${YELLOW}$inc${RS}")
                                                         fi
                                                 done
                                         if [[ -z $var ]]
@@ -250,8 +250,8 @@ do
                                         done
                                         else for each in Timeout StartServers ServerLimit MaxRequestWorkers MaxClients ThreadsPerChild MaxConnectionsPerChild KeepAlive KeepAliveTimeout MaxKeepAliveRequests
                                                 do for inc in $httpdinc
-                                                        do if [[ $(egrep -v "(#|SSL)" $inc|egrep -h "$each " 2> /dev/null) ]]
-                                                                then var=$(egrep -v "(#|SSL)" $inc|egrep -h "$each " 2> /dev/null)
+                                                        do if [[ $(egrep -v "(#|SSL)" $inc|egrep "$each " 2> /dev/null) ]]
+                                                                then var=$(egrep -v "(#|SSL)" $inc|egrep "$each " 2> /dev/null;printf " --- found in ${YELLOW}$inc${RS}")
                                                         fi
                                                 done
                                         if [[ -z $var ]]
