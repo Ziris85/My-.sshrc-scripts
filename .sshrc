@@ -1,0 +1,29 @@
+## INCLUDE ##
+function helpfuls() {
+        RED=$(tput setaf 1)
+        GREEN=$(tput setaf 2)
+        YELLOW=$(tput setaf 3)
+        BLUE=$(tput setaf 4)
+        MAGENTA=$(tput setaf 5)
+        RS=$(tput sgr0)
+        BOLD=$(tput bold)
+        UL=$(tput smul)
+if [ -f /usr/local/cpanel/cpanel ]
+        then CP="yes"
+fi
+if [ -f /usr/local/psa/version ]
+        then PL="yes"
+fi
+}
+export -f helpfuls
+
+## VIMRC ##
+export VIMINIT="let \$MYVIMRC='$SSHHOME/.sshrc.d/.vimrc' | source \$MYVIMRC"
+export BC_ENV_ARGS="$SSHHOME/.sshrc.d/.bcrc"
+
+alias ?="printf \"Available Scripts:\n   vs           System Version Info\n   showswap Shows System Swap Info & Usage\n   vhosts       Gathers helpful virtualhost information\n\""
+
+alias vs="/bin/bash $SSHHOME/.sshrc.d/versions"
+alias showswap="/bin/bash $SSHHOME/.sshrc.d/showswap"
+alias ll="/bin/ls -lah"
+alias vhosts="/bin/bash $SSHHOME/.sshrc.d/vhosts"
