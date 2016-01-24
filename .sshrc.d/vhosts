@@ -2,7 +2,7 @@
 helpfuls
 
 if [[ -z "$@" ]]
-	then printf "Usage: vhosts (--dump|--list|--all|--help) domain1.com [domain2.com domain3.com ...]\n"
+	then printf "Usage: vhosts (-d|-l|-a|-h) domain1.com [domain2.com domain3.com ...]\n"
 	exit
 fi
 
