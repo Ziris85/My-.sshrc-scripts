@@ -2,23 +2,23 @@
 helpfuls
 
 if [[ $(for i in $(echo $@); do echo $i|egrep -o "^\-h$"; done) ]]
-        then printf "\nUsage:   vs (service1 [service2 service3...])\n"
-        printf "\nVersions script. By default (with no arguments passed) will output versions of software it finds. You may pass it a space-separated list of services to get more detailed information on them.\n"
-        printf "\nAvailable services for details:\n   httpd\n   php\n   nginx\n   mysql\n   memcached\n"
-        exit
+	then printf "\nUsage:   vs (service1 [service2 service3...])\n"
+	printf "\nVersions script. By default (with no arguments passed) will output versions of software it finds. You may pass it a space-separated list of services to get more detailed information on them.\n"
+	printf "\nAvailable services for details:\n   httpd\n   php\n   nginx\n   mysql\n   memcached\n"
+	exit
 fi
 
 ## Some reusable variables
 if [[ "$CP" == "yes" ]]
-	then httpdv=$(/usr/local/apache/bin/apachectl -v 2> /dev/null|awk -F '/' '/version/ {print $2}')
-	mpm=$(/usr/local/apache/bin/apachectl -V 2> /dev/null|awk '/MPM:/ {print $3}')
-	httpdconf=$(/usr/local/apache/bin/apachectl -V 2> /dev/null|awk -F \" '/HTTPD_ROOT|SERVER_CONFIG_FILE/ {print $2}'|paste -sd '/' -)
-	httpdinc=$(printf "$(for i in $(awk '/(Min|Max)?(Spare)?RequestWorkers|Clients|ConnectionsPer|Server(s |Limit)|KeepAlive/ {y=1;next}y' $httpdconf|sed '/VirtualHost/,/\/VirtualHost/d'|grep -v "#"|awk '/Include / {print $2}'|sed 's/"//g'); do echo $i; grep -v "#" $i|awk '/Include / {print $2}'|sed 's/"//g';done)"|paste -s)
-	else if [ -f /usr/sbin/apachectl ]
-		then httpdv=$(/usr/sbin/apachectl -v 2> /dev/null|awk -F '/' '/version/ {print $2}')
-        	mpm=$(/usr/sbin/apachectl -V 2> /dev/null|awk '/MPM:/ {print $3}')
-		httpdconf=$(/usr/sbin/apachectl -V 2> /dev/null|awk -F \" '/HTTPD_ROOT|SERVER_CONFIG_FILE/ {print $2}'|paste -sd '/' -)
-		httpdinc=$(printf "$(for i in $(awk '/(Min|Max)?(Spare)?RequestWorkers|Clients|ConnectionsPer|Server(s |Limit)|KeepAlive/ {y=1;next}y' $httpdconf|sed '/VirtualHost/,/\/VirtualHost/d'|grep -v "#"|awk '/Include / {print $2}'|sed 's/"//g'); do echo $i; grep -v "#" $i|awk '/Include / {print $2}'|sed 's/"//g';done)"|paste -s)
+	then httpdbin="/usr/local/apache/bin/apachectl"
+	httpdv=$($httpdbin -v 2> /dev/null|awk -F '/' '/version/ {print $2}')
+	mpm=$($httpdbin -V 2> /dev/null|awk '/MPM:/ {print $3}')
+	httpdconf=$($httpdbin -V 2> /dev/null|awk -F \" '/HTTPD_ROOT|SERVER_CONFIG_FILE/ {print $2}'|paste -sd '/' -)
+	else if [ $(which apachectl 2> /dev/null) ]
+		then httpdbin="apachectl"
+		httpdv=$($httpdbin -v 2> /dev/null|awk -F '/' '/version/ {print $2}')
+        	mpm=$($httpdbin -V 2> /dev/null|awk '/MPM:/ {print $3}')
+		httpdconf=$($httpdbin -V 2> /dev/null|awk -F \" '/HTTPD_ROOT|SERVER_CONFIG_FILE/ {print $2}'|paste -sd '/' -)
 		else httpdv="no"
 	fi
 fi
@@ -26,11 +26,13 @@ fi
 if [[ -z $(which php 2> /dev/null) ]]
 	then phpv="no"
 	else phpv=$(php -v 2> /dev/null |head -1| cut -d ' ' -f 2)
-	phpini=$(php -i 2> /dev/null|awk '/Loaded Configuration/ {print $5}')
-	if [[ "$CP" == "yes" ]]
-		then handler=$(/usr/local/cpanel/bin/rebuild_phpconf --current|awk '/PHP5 SAPI:/ {print $3}')
-		else if [[ "$httpdv" != "no" ]]
-			then hander=$(/usr/sbin/apachectl -M 2> /dev/null|egrep "((su)?php)")
+	if [ $@ ]
+		then phpini=$(php -i 2> /dev/null|awk '/Loaded Configuration/ {print $5}')
+		if [[ "$CP" == "yes" ]]
+			then handler=$(/usr/local/cpanel/bin/rebuild_phpconf --current|awk '/PHP5 SAPI:/ {print $3}')
+			else if [[ "$httpdv" != "no" ]]
+				then hander=$(/usr/sbin/apachectl -M 2> /dev/null|egrep "((su)?php)")
+			fi
 		fi
 	fi
 fi
@@ -316,7 +318,7 @@ do
                                 then printf "${RED}NOT installed!${RS}\n"
 				else printf "Version:	${GREEN}$(mysqladmin -V|cut -d ' ' -f 6|sed 's/,//')${RS}\n"
 				printf "\n${MAGENTA}${BOLD}Opts:${RS}\n"
-				mysqladmin var|awk '/max_connections|default_storage|innodb_buffer_pool_size|key_buffer(_size)?| max_allowed_packet/ {print $2 " " $4}'|column -t
+				mysqladmin var|awk '/datadir|max_connections|default_storage|innodb_buffer_pool_size|key_buffer(_size)?| max_allowed_packet/ {print $2 " " $4}'|column -t
 				printf "\n${MAGENTA}${BOLD}Slow Logging:${RS}\n"
 				mysqladmin var|awk '/(slow|long)_query_(log(_file)?|time)|log_slow_queries/ {print $2 " " $4}'|column -t
 				printf "\n${MAGENTA}${BOLD}General Log:${RS}\n"
