@@ -234,35 +234,64 @@ do
 		;;
 		httpd) printf "${MAGENTA}${BOLD}Details for httpd:${RS}\n"
 			if [[ "$httpdv" == "no" ]]
-	                	then printf "${RED}NOT installed!${RS}\n"
-		                else printf "Version:	${GREEN}$httpdv${RS}       MPM: ${GREEN}$mpm${RS}\n"
+				then printf "${RED}NOT installed!${RS}\n"
+				else printf "Version:	${GREEN}$httpdv${RS}       MPM: ${GREEN}$mpm${RS}\n"
+				httpdinca=$(printf "$(for i in $(awk '/(Min|Max)?(Spare)?RequestWorkers|Clients|ConnectionsPer|Server(s |Limit)|KeepAlive/ {y=1;next}y' $httpdconf|sed '/VirtualHost/,/\/VirtualHost/d'|grep -v "#"|awk '/Include / {print $2}'|sed 's/"//g'); do echo $i; grep -v "#" $i|awk '/Include / {print $2}'|sed 's/"//g';done)"|paste -s)
 				printf "\n${MAGENTA}${BOLD}Opts:${RS}\n"
 				if [[ "$mpm" =~ [pP]refork ]]
-                                        then for each in Timeout StartServers MinSpareServers MaxSpareServers ServerLimit MaxRequestWorkers MaxClients MaxConnectionsPerChild KeepAlive KeepAliveTimeout MaxKeepAliveRequests
-                                                do for inc in $httpdinc
-                                                        do if [[ $(grep -v "#" $inc|egrep "$each " 2> /dev/null) ]]
-                                                                then var=$(grep -v "#" $inc|egrep "$each " 2> /dev/null;printf " --- found in ${YELLOW}$inc${RS}")
-                                                        fi
-                                                done
-                                        if [[ -z $var ]]
-                                                then grep -v "#" $httpdconf|egrep "$each "
-                                                else echo $var
-                                        fi
-                                        var=""
-                                        done
-                                        else for each in Timeout StartServers ServerLimit MaxRequestWorkers MaxClients ThreadsPerChild MaxConnectionsPerChild KeepAlive KeepAliveTimeout MaxKeepAliveRequests
-                                                do for inc in $httpdinc
-                                                        do if [[ $(egrep -v "(#|SSL)" $inc|egrep "$each " 2> /dev/null) ]]
-                                                                then var=$(egrep -v "(#|SSL)" $inc|egrep "$each " 2> /dev/null;printf " --- found in ${YELLOW}$inc${RS}")
-                                                        fi
-                                                done
-                                        if [[ -z $var ]]
-                                                then egrep -v "(#|SSL)" $httpdconf|egrep "$each "
-                                                else echo $var
-                                        fi
-                                        var=""
-                                        done
+					then for each in "(?<!KeepAlive)Timeout" StartServers MinSpareServers MaxSpareServers ServerLimit "Max(RequestWorkers|Clients)" MaxConnectionsPerChild KeepAlive KeepAliveTimeout MaxKeepAliveRequests
+						do for inc in $httpdinca
+							do if [[ $(cat $inc|sed -e '/\#/d' -e '/IfModule \(mpm\_\)\?\(event\|worker\)\(\.c\|\_module\)/,/\/IfModule/d'|tac|egrep -m1 "$each " 2> /dev/null) ]]
+								then var=$(cat $inc|sed -e '/\#/d' -e '/IfModule \(mpm\_\)\?\(event\|worker\)\(\.c\|\_module\)/,/\/IfModule/d'|tac|egrep -m1 "$each " 2> /dev/null;printf " ---> found in ${YELLOW}$inc${RS}")
+							fi
+						done
+					if [[ -z $var ]]
+						then var=$(cat $httpdconf|sed -e '/\(\#\|SSL\)/d' -e '/IfModule \(mpm\_\)\?\(event\|worker\)\(\.c\|\_module\)/,/\/IfModule/d'|tac|egrep -m1 "$each ")
+						if [[ -z $var ]]
+							then httpdincb=$(printf "$(for i in $(awk '1;/(Min|Max)?(Spare)?RequestWorkers|Clients|ConnectionsPer|Server(s |Limit)|KeepAlive/{exit}' $httpdconf|sed -e '/VirtualHost/,/\/VirtualHost/d' -e '/\#/d'|awk '/Include / {print $2}'|sed 's/"//g');do echo $i; grep -v "#" $i|awk '/Include / {print $2}'|sed 's/"//g';done)"|paste -s)
+							for inc in $httpdinc2
+								do if [[ $(cat $inc|sed -e '/\(\#\|SSL\)/d' -e '/IfModule \(mpm\_\)\?\(event\|worker\)\(\.c\|\_module\)/,/\/IfModule/d'|tac|egrep -m1 "$each " 2> /dev/null) ]]
+									then var=$(cat $inc|sed -e '/\(\#\|SSL\)/d' -e '/IfModule \(mpm\_\)\?\(event\|worker\)\(\.c\|\_module\)/,/\/IfModule/d'|egrep -m1 "$each " 2> /dev/null;printf " ---> found in ${YELLOW}$inc${RS}")
+								fi
+							done
+							if [[ -z $var ]]
+								then printf "$(printf "$prefork"|grep -P "$each ") ---> ${YELLOW}Using default${RS}\n"
+								else echo $var
+							fi
+							else echo $var
+						fi
+						else echo $var
+					fi
+					var=""
+					done
+					else for each in "(?<!KeepAlive)Timeout" StartServers ServerLimit "Max(RequestWorkers|Clients)" ThreadsPerChild MaxConnectionsPerChild KeepAlive KeepAliveTimeout MaxKeepAliveRequests
+						do for inc in $httpdinca
+							do if [[ $(cat $inc|sed -e '/\(\#\|SSL\)/d' -e '/IfModule \(mpm\_\)\?prefork\(\.c\|\_module\)/,/\/IfModule/d'|tac|egrep -m1 "$each " 2> /dev/null) ]]
+								then var=$(cat $inc|sed -e '/\(\#\|SSL\)/d' -e '/IfModule \(mpm\_\)\?prefork\(\.c\|\_module\)/,/\/IfModule/d'|tac|egrep -m1 "$each " 2> /dev/null;printf " ---> found in ${YELLOW}$inc${RS}")
+							fi
+						done
+						if [[ -z $var ]]
+							then var=$(cat $httpdconf|sed -e '/\(\#\|SSL\)/d' -e '/IfModule \(mpm\_\)\?prefork\(\.c\|\_module\)/,/\/IfModule/d'|tac|egrep -m1 "$each ")
+							if [[ -z $var ]]
+								then httpdincb=$(printf "$(for i in $(awk '1;/(Min|Max)?(Spare)?RequestWorkers|Clients|ConnectionsPer|Server(s |Limit)|KeepAlive/{exit}' $httpdconf|sed '/VirtualHost/,/\/VirtualHost/d'|grep -v "#"|awk '/Include / {print $2}'|sed 's/"//g');do echo $i; grep -v "#" $i|awk '/Include / {print $2}'|sed 's/"//g';done)"|paste -s)
+								for inc in $httpdincb
+									do if [[ $(cat $inc|sed -e '/\(\#\|SSL\)/d' -e '/IfModule \(mpm\_\)\?prefork\(\.c\|\_module\)/,/\/IfModule/d'|tac|egrep -m1 "$each " 2> /dev/null) ]]
+										then var=$(cat $inc|sed -e '/\(\#\|SSL\)/d' -e '/IfModule \(mpm\_\)\?prefork\(\.c\|\_module\)/,/\/IfModule/d'|tac|egrep -m1 "$each " 2> /dev/null;printf " ---> found in ${YELLOW}$inc${RS}")
+									fi
+								done
+								if [[ -z $var ]]
+									then printf "$(printf "$event"|grep -P "$each " ) ---> ${YELLOW}Using default${RS}\n"
+									else echo $var
+								fi
+								else echo $var
+							fi
+							else echo $var
+						fi
+						var=""
+					done
 				fi
+				printf "\n${MAGENTA}${BOLD}Performance:${RS}\n"
+				$httpdbin status|egrep "(uptime|Total access|requests/sec)"
 				printf "\n${MAGENTA}${BOLD}Resource Usage:${RS}\n"
 				if [[ -z $(which bc 2> /dev/null) ]]
 					then printf "Can't calculate memory usage without bc! Install first"
