@@ -14,6 +14,11 @@ fi
 if [ -f /usr/local/psa/version ]
         then PL="yes"
 fi
+
+## HTTPD Defaults
+
+        event=$(printf "Timeout 60\nStartServers 3\nMaxRequestWorkers 400\nServerLimit 16\nThreadsPerChild 25\nMaxConnectionsPerChild 0\nKeepAlive On\nKeepAliveTimeout 5\nMaxKeepAliveRequests 100\n")
+        prefork=$(printf "Timeout 60\nStartServers 5\nMinSpareServers 5\nMaxSpareServers 10\nMaxRequestWorkers 256\nServerLimit 256\nMaxConnectionsPerChild 0\nKeepAlive On\nKeepAliveTimeout 5\nMaxKeepAliveRequests 100\n")
 }
 export -f helpfuls
 
