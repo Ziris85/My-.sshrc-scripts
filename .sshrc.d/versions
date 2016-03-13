@@ -311,11 +311,11 @@ do
 				fi
 				printf "Loaded php.ini:	$phpini\n"
                 		printf "\n${MAGENTA}${BOLD}Opts:${RS}\n"
-				printf "Variable Local Master \n$(php -i 2> /dev/null|awk -F "=>" '/memory_limit|max_execution|max_input_time|max_input_vars/ {print $1 " " $2 " " $3}')"|column -t
+				printf "Variable Local Master \n$(php -i 2> /dev/null|awk -F "=>" '/memory_limit|max_execution|max_input_time|max_input_vars/ {print $1 " " $2 " " $3}')\n"|column -t
 				printf "\n${MAGENTA}${BOLD}Error Logging:${RS}\n"
-				printf "Variable Local Master \n$(php -i 2> /dev/null|awk -F "=>" '/(log_|^)error(s |_log)/ {print $1 " " $2 " " $3}')"|column -t
+				printf "Variable Local Master \n$(php -i 2> /dev/null|awk -F "=>" '/(log_|^)error(s |_log)/ {print $1 " " $2 " " $3}')\n"|column -t
 				printf "\n${MAGENTA}${BOLD}Mail log:${RS}\n"
-				printf "Variable Local Master \n$(php -i 2> /dev/null|awk -F "=>" '/mail.(log|add_x_header)/ {print $1 " " $2 " " $3}')"|column -t
+				printf "Variable Local Master \n$(php -i 2> /dev/null|awk -F "=>" '/mail.(log|add_x_header)/ {print $1 " " $2 " " $3}')\n"|column -t
 				printf "\n${MAGENTA}${BOLD}Resource Usage:${RS}\n"
 				if [[ -z $(which bc 2> /dev/null) ]]
 					then printf "Can't calculate memory usage without bc! Install first"
